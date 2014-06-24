@@ -12,13 +12,10 @@ import Project.Initialize
 import SbtPomKeys._
 import collection.JavaConverters._
 
-/** This object knows how to load maven reactor projects and turn them into sbt projects. */
-object MavenProjectHelper {
+/** This class knows how to load maven reactor projects and turn them into sbt projects. */
+class MavenProjectHelper(transformId: (String, String, String) => String) {
   import MavenHelper.useMavenPom
-  
-  def makeId(group: String, art: String, version: String): String =
-    group+":"+art+":"+version
-  
+
   /** A way of treating projects as trees. */
   sealed trait ProjectTree {
     def model: PomModel
@@ -26,11 +23,8 @@ object MavenProjectHelper {
     
     // TODO - Keep version?
     lazy val id: String =
-      makeId(model.getGroupId, model.getArtifactId, model.getVersion)
-      
-    def name: String = 
-     model.getArtifactId
-      
+      transformId(model.getGroupId, model.getArtifactId, model.getVersion)
+
     override def hashCode = id.hashCode
     override def toString = "Project("+id+")"
     override def equals(that: Any): Boolean = 
@@ -97,7 +91,7 @@ object MavenProjectHelper {
                 Keys.libraryDependencies <<= Keys.libraryDependencies apply { deps =>
                   val depIds = getDepsFor(current).map(_.id).toSet
                   deps filterNot { dep =>
-                    val id = makeId(dep.organization, dep.name, dep.revision)
+                    val id = transformId(dep.organization, dep.name, dep.revision)
                     depIds contains id
                   }  
                 }     
@@ -138,7 +132,7 @@ object MavenProjectHelper {
         val deps =
           for {
             dep <- Option(project.model.getDependencies).map(_.asScala).getOrElse(Nil)
-            depId = makeId(dep.getGroupId, dep.getArtifactId, dep.getVersion)
+            depId = transformId(dep.getGroupId, dep.getArtifactId, dep.getVersion)
             pdep <- projects
             if pdep.id == depId
           } yield pdep
