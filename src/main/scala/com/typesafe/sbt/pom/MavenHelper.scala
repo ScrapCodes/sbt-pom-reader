@@ -25,7 +25,6 @@ object MavenHelper {
     effectivePom <<= (pomLocation, mvnLocalRepository, profiles, mavenUserProperties) apply loadEffectivePom,
     showEffectivePom <<= (pomLocation, effectivePom, streams) map showPom
   )
-  
 
   // We Synchronize on System.out so aggregate logs don't interleave....
   def showPom(location: File, model: PomModel, s: TaskStreams): Unit = System.out.synchronized {
