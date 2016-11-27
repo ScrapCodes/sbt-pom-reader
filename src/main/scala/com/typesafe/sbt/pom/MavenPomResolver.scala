@@ -58,7 +58,15 @@ class MvnPomResolver(system: RepositorySystem, localRepo: File) {
        // TODO - Model resolver?
        request setModelResolver modelResolver
 
-       (modelBuilder build request).getEffectiveModel
+       val effectiveModel = (modelBuilder build request).getEffectiveModel
+       val scalaBinaryVersion = effectiveModel.getProperties.getProperty("scala.binary.version")
+       if (!effectiveModel.getArtifactId.matches(""".*_2.\d+.*""")) // does not contain artifact Id.
+         effectiveModel.setArtifactId(effectiveModel.getArtifactId + "_" + scalaBinaryVersion)
+       else { // drop the provided suffix and append the correct suffix.
+         effectiveModel.setArtifactId(effectiveModel
+           .getArtifactId.replaceFirst("""_2.\d+.*""",s"_$scalaBinaryVersion"))
+       }
+       effectiveModel
      } catch {
        case e: ModelBuildingException =>
          // TODO - Wrap in better exception...

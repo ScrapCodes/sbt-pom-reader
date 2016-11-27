@@ -41,7 +41,7 @@ object MavenProjectHelper {
   }
   case class AggregateProject(model: PomModel, dir: File, children: Seq[ProjectTree]) extends ProjectTree
   case class SimpleProject(model: PomModel, dir: File) extends ProjectTree
-  case class ProjectDep(x: ProjectTree, isTestScoped: Boolean)
+  case class ProjectDep(tree: ProjectTree, isTestScoped: Boolean)
 
   def makeReactorProject(baseDir: File, overrideRootProjectName:Option[String] = None,
                          profiles: Seq[String], userProps: Map[String, String]): Seq[Project] = {
@@ -62,7 +62,7 @@ object MavenProjectHelper {
           case _ => Nil
         }
         val deps = getDepsFor(project)
-        aggregates ++ deps.map(_.x)
+        aggregates ++ deps.map(_.tree)
       }
     def makeProjects(toMake: Seq[ProjectTree], made: Map[ProjectTree, Project] = Map.empty): Seq[Project] = 
       toMake match {
@@ -71,7 +71,7 @@ object MavenProjectHelper {
           val depProjects: Seq[(Project, Boolean)] =
             for {
               dep <- getDepsFor(current)
-              depProject <- made.get(dep.x)
+              depProject <- made.get(dep.tree)
               isTestScoped = dep.isTestScoped
             } yield depProject -> isTestScoped
           val aggregates: Seq[Project] =
@@ -103,7 +103,7 @@ object MavenProjectHelper {
               // post-filter artifacts?
               settings(
                 Keys.libraryDependencies <<= Keys.libraryDependencies apply { deps =>
-                  val depIds = getDepsFor(current).map(_.x.id).toSet
+                  val depIds = getDepsFor(current).map(_.tree.id).toSet
                   deps filterNot { dep =>
                     val id = makeId(dep.organization, dep.name, dep.revision)
                     depIds contains id
@@ -116,21 +116,21 @@ object MavenProjectHelper {
       }
     makeProjects(sorted)
   }
-  
+
   // TODO - Can we  pick a better name and does this need scrubbed?
   def makeProjectName(pom: PomModel, overrideName: Option[String]): String = {
     val pomName = Option(pom.getProperties.get("sbt.project.name").asInstanceOf[String])
     val directoryName = pom.getPomFile.getParentFile.getName
     overrideName.getOrElse(pomName.getOrElse(directoryName))
   }
-    
+
   def makeProjectTree(pomFile: File, profiles: Seq[String], userProps: Map[String, String]): ProjectTree = {
     val pom = loadEffectivePom(pomFile, profiles = profiles, userProps = userProps)
     val children = getChildProjectPoms(pom, pomFile) map (makeProjectTree(_, profiles, userProps))
     if(children.isEmpty) SimpleProject(pom, pomFile.getParentFile)
     else AggregateProject(pom, pomFile.getParentFile, children)
   }
-  
+
   // An unsorted walk of the tree
   def allProjectsInTree(tree: ProjectTree): Seq[ProjectTree] =
     tree match {
